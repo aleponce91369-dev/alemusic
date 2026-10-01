@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reproductor de Álbumes</title>
+
+  <!-- Iconos para el Footer y controles (FontAwesome) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <style>
+    /* Estilos Generales */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: #ffffff;
+      color: #000000;
+      font-family: "Times New Roman", Times, Serif;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      align-items: center;
+      justify-content: space-between;
+      overflow-x: hidden;
+    }
+
+    main {
+      width: 100%;
+      max-width: 800px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px 20px;
+      flex-grow: 1;
+    }
+
+    /* Carrusel 3D de Álbumes */
+    .carousel-container {
+      position: relative;
+      width: 100%;
+      height: 320px;
+      margin-bottom: 25px;
+      perspective: 1000px; /* Sensación de profundidad 3D */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+    }
+
+    .carousel-container.empty {
+      height: auto;
+      padding: 50px 0;
+    }
+
+    .carousel-track {
+      position: relative;
+      width: 240px;
+      height: 240px;
+      transform-style: preserve-3d;
+    }
+
+    .empty-state {
+      max-width: 320px;
+      text-align: center;
+      color: #666666;
+      font-size: 0.95rem;
+      line-height: 1.5;
+    }
+
+    .album-card {
+      position: absolute;
+      width: 240px;
+      height: 240px;
+      border-radius: 4px;
+      overflow: hidden;
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4), 0 5px 15px rgba(0, 0, 0, 0.2);
+      transition: transform 0.5s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.5s ease;
+      cursor: pointer;
+      background-color: #eee;
+    }
+
+    .album-card img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      pointer-events: none;
+    }
+
+    /* Transformaciones 3D según posición */
+    .album-card.active {
+      transform: translateX(0) translateZ(0) rotateY(0deg);
+      z-index: 10;
+      opacity: 1;
+    }
+
+    .album-card.prev-1 {
+      transform: translateX(-110px) translateZ(-100px) rotateY(25deg);
+      z-index: 5;
+      opacity: 0.85;
+    }
+
+    .album-card.next-1 {
+      transform: translateX(110px) translateZ(-100px) rotateY(-25deg);
+      z-index: 5;
+      opacity: 0.85;
+    }
+
+    .album-card.prev-2 {
+      transform: translateX(-190px) translateZ(-200px) rotateY(35deg);
+      z-index: 2;
+      opacity: 0.5;
+    }
+
+    .album-card.next-2 {
+      transform: translateX(190px) translateZ(-200px) rotateY(-35deg);
+      z-index: 2;
+      opacity: 0.5;
+    }
+
+    .album-card.far {
+      transform: translateZ(-300px);
+      opacity: 0;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* Enlaces del artista */
+    .links-section {
+      margin-bottom: 25px;
+      text-align: center;
+    }
+
+    .links-section a {
+      color: #000000;
+      text-decoration: underline;
+      font-size: 1.05rem;
+      margin: 0 10px;
+      display: inline-block;
+    }
+
+    .links-section a:hover {
+      color: #555555;
+    }
+
+    /* Información del Artista */
+    .artist-info {
+      text-align: center;
+      max-width: 600px;
+      margin-bottom: 30px;
+    }
+
+    .artist-info h2 {
+      font-size: 1.5rem;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+
+    .artist-info p {
+      font-size: 1rem;
+      line-height: 1.4;
+      color: #222222;
+    }
+
+    /* Reproductor Completo */
+    .player-container {
+      width: 100%;
+      max-width: 500px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 10px;
+      transition: opacity 0.2s ease;
+    }
+
+    .player-container.disabled {
+      opacity: 0.4;
+      pointer-events: none;
+    }
+
+    .current-song-title {
+      text-align: center;
+      font-size: 0.9rem;
+      color: #333333;
+      min-height: 1.2em;
+    }
+
+    /* Barra de Progreso y Tiempos */
+    .progress-container {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      font-size: 0.85rem;
+    }
+
+    .time-stamp {
+      font-family: "Times New Roman", Times, serif;
+      min-width: 35px;
+      text-align: center;
+    }
+
+    .progress-bar {
+      flex-grow: 1;
+      height: 4px;
+      background-color: #e0e0e0;
+      border-radius: 2px;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background-color: #000000;
+      border-radius: 2px;
+      transition: width 0.1s linear;
+    }
+
+    /* Fila de controles principales */
+    .player-controls {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 22px;
+      width: 100%;
+    }
+
+    .icon-btn {
+      background: none;
+      border: none;
+      color: #000000;
+      font-size: 1.1rem;
+      cursor: pointer;
+      width: 34px;
+      height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .icon-btn:hover {
+      color: #777777;
+    }
+
+    .icon-btn.active {
+      color: #000000;
+      text-shadow: 0 0 0.01px #000000; /* leve refuerzo visual de "activo" */
+      position: relative;
+    }
+
+    .icon-btn.active::after {
+      content: '';
+      position: absolute;
+      bottom: 2px;
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: #000000;
+    }
+
+    .wave-visualizer {
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 3px;
+      height: 35px;
+      width: 100%;
+      padding: 0 5px;
+    }
+
+    .bar {
+      width: 3px;
+      background-color: #000000;
+      height: 12%;
+      border-radius: 1px;
+      transition: height 0.08s ease;
+    }
+
+    /* Fila de volumen */
+    .volume-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      font-size: 0.85rem;
+      color: #333333;
+    }
+
+    .volume-row input[type="range"] {
+      width: 110px;
+      accent-color: #000000;
+    }
+
+    .play-btn {
+      background: none;
+      border: 1px solid #000000;
+      color: #000000;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      transition: background-color 0.2s, color 0.2s;
+    }
+
+    .play-btn:hover {
+      background-color: #000000;
+      color: #ffffff;
+    }
+
+    /* Caja con el mensaje del artista */
+    .message-box {
+      background: #ffffff;
+      border-radius: 4px;
+      padding: 34px 30px 26px;
+      width: 100%;
+      max-width: 480px;
+      max-height: 88vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+    }
+
+    /* Footer con Redes Sociales */
+    footer {
+      width: 100%;
+      padding: 30px 20px;
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+    }
+
+    footer a {
+      color: #000000;
+      font-size: 1.2rem;
+      text-decoration: none;
+      transition: opacity 0.2s;
+    }
+
+    footer a:hover {
+      opacity: 0.6;
+    }
+
+    @media (max-width: 480px) {
+      .message-box {
+        padding: 26px 18px 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <main>
+    <img src="niño.png" alt="impulso audiovisual" width="400px" height="400px">
+    <h2>IMPULSO AUDIOVISUAL presenta...</h2>
+
+    <!-- Carrusel Tridimensional de Álbumes -->
+    <div class="carousel-container" id="carousel">
+      <div class="carousel-track" id="track"></div>
+    </div>
+
+    <!-- Nombre y Bio Corta (se completan desde la CONFIGURACIÓN del script) -->
+    <div class="artist-info">
+      <h2 id="artist-name"></h2>
+      <p id="artist-bio"></p>
+    </div>
+
+    <!-- Reproductor con Visualizador de Ondas -->
+    <div class="player-container" id="playerContainer">
+
+      <p class="current-song-title" id="currentSongTitle"></p>
+
+      <!-- Barra de Progreso de Canción -->
+      <div class="progress-container">
+        <span class="time-stamp" id="currentTime">0:00</span>
+        <div class="progress-bar" id="progressBar">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <span class="time-stamp" id="duration">0:00</span>
+      </div>
+
+      <div class="wave-visualizer" id="visualizer">
+        <!-- Barras finas creadas dinámicamente con JS -->
+      </div>
+
+      <div class="player-controls">
+        <button class="icon-btn" id="shuffleBtn" title="Aleatorio" aria-label="Aleatorio">
+          <i class="fa-solid fa-shuffle"></i>
+        </button>
+        <button class="icon-btn" id="prevBtn" title="Anterior" aria-label="Anterior">
+          <i class="fa-solid fa-backward-step"></i>
+        </button>
+        <button class="play-btn" id="playBtn" aria-label="Reproducir">
+          <i class="fa-solid fa-play" id="playIcon"></i>
+        </button>
+        <button class="icon-btn" id="nextBtn" title="Siguiente" aria-label="Siguiente">
+          <i class="fa-solid fa-forward-step"></i>
+        </button>
+        <button class="icon-btn" id="repeatBtn" title="Repetir: desactivado" aria-label="Repetir">
+          <i class="fa-solid fa-repeat"></i>
+        </button>
+      </div>
+
+      <div class="volume-row">
+        <i class="fa-solid fa-volume-low"></i>
+        <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="1" aria-label="Volumen">
+      </div>
+
+      <audio id="audioPlayer" preload="metadata"></audio>
+    </div>
+
+    <br>
+
+    <!-- Mensaje del artista: podés editar el texto directamente acá -->
+    <h2 class="message-box">
+      Este adelanto de mi nuevo trabajo, está impregnado por las incesables aguas del tiempo.
+      Los que me conocen saben que hace mucho vengo creando y progresando mi expresión,
+      trabajando, fluyendo a merced de la deidad del elemento primordial del universo; el sonido.
+      Me siento, hoy, capaz de presentar las canciones que vengo acumulando hace 10 años.
+      Y lejos estoy de esa película, de ese personaje mental que destruí por el bien de la
+      canalización pura de mi expresión artística.
+      Jamás me sentí dueño de mis canciones y jamás me creí un dios creador de la música.
+      Si algo debemos admirar, es al artísta supremo,
+      que en su lienzo infinito y perfecto, supo vibrar en frecuencias divinas, inalcanzables
+      para el entendimiento humano y "pintar" los paisajes hermosos que nos rodean, incluyendo
+      los auspiciosos y propicios sistemas naturales los cuales nos permiten disfrutar
+      de la música en su máximo esplendor.
+      Mas que un creador de canciones, me siento una antena canalizadora de ideas ya existentes
+      en un universo marcando el pulso creativo.
+      Ojalá podamos volver a ver la verdadera función que cumple la música en nuestras vidas,
+      lejos de esa violación mercantil de lo sagrado del sonido, volver a curarnos con ella.
+      La medicina está ahí, detras de frecuencias y palabras imperfectas y humanas.
+      Debemos poder ver, que nuestro amor por crear, no es mas que una fiel imagen y semejanza,
+      de un universo en constante exploción creativa.<br>
+      En esta página web van a poder disfrutar de adelantos exclusivos de canciones, imagenes e ideas. GRATIS. <br>
+      Sigo trabajando humildemente en mi homestudio, para que el cierre de este largo ciclo, sea lo mas sano posible tanto para mí como para el respetado oyente. Puedo sentir el peso de las canciones, puedo sentir que ya no me pertenecen solo a mí.
+      Es un desapego que acepto, para volver a adentrarme, nuevamente, en una nueva etapa de canalización y trabajo, necesario.
+      Desde ya, gracias por escuchar, gracias por el apoyo y gracias por todo. <br>
+      Con mucho amor...<br> Alejandro Ponce<br> músico compositor y productor musical.
+    </h2>
+    <br>
+
+    <img src="human.png" alt="by humans for humans" width="200px" height="200px">
+
+    <!-- Links Útiles (se completan desde la CONFIGURACIÓN del script) -->
+    <div class="links-section" id="linksSection"></div>
+  </main>
+
+  <!-- Footer con Redes Sociales -->
+  <footer>
+    <a href="https://www.youtube.com/@AleAlternativo" aria-label="YouTube"><i class="fa-brands fa-youtube"></i></a>
+    <a href="https://music.amazon.com/artists/B06XD9154N/ale-ponce" aria-label="Amazon Music"><i class="fa-brands fa-amazon"></i></a>
+    <a href="https://music.apple.com/us/artist/ale-ponce/1211640430" aria-label="Apple Music"><i class="fa-brands fa-apple"></i></a>
+    <a href="https://open.spotify.com/intl-es/artist/21xpu9XZ79PYUvD2aMrDhs?si=SNY47ppWSjyOik7Oz9mgbw" aria-label="Spotify"><i class="fa-brands fa-spotify"></i></a>
+    <a href="https://www.tiktok.com/@aleponcemusica" aria-label="TikTok"><i class="fa-brands fa-tiktok"></i></a>
+    <a href="https://www.instagram.com/alemusica.alternativa/" aria-label="Instagram"><i class="fa-brands fa-instagram"></i></a>
+    <a href="https://www.facebook.com/alejandro.ponce.423460/?locale=es_LA" aria-label="Facebook"><i class="fa-brands fa-facebook-f"></i></a>
+  </footer>
+
+  <script>
+    /* ==========================================================================
+       ★★★  CONFIGURACIÓN  ★★★
+       Todo lo que tenés que editar a mano está en este bloque.
+       No necesitás tocar nada más abajo.
+
+       ┌─ CÓMO AGREGAR UNA CANCIÓN ───────────────────────────────────────────┐
+       │ 1. En tu proyecto (la misma carpeta donde está este index.html)      │
+       │    creá dos carpetas:                                                │
+       │        audio/    → acá van los archivos de música (.mp3)             │
+       │        covers/   → acá van las portadas (.jpg o .png)                │
+       │                                                                      │
+       │ 2. Copiá tus archivos dentro de esas carpetas.                       │
+       │    Usá nombres SIN espacios, SIN tildes y SIN ñ.                     │
+       │    Bien:  audio/mi-cancion.mp3     covers/mi-cancion.jpg             │
+       │    Mal:   audio/Mi Canción.mp3     covers/Portada Nueva.JPG          │
+       │    (Respetá mayúsculas y minúsculas: el servidor las distingue.)     │
+       │                                                                      │
+       │ 3. Agregá una línea en la lista SONGS de más abajo, copiando el      │
+       │    formato del ejemplo. Una línea por canción, terminada en coma.    │
+       │                                                                      │
+       │ 4. Guardá, hacé commit y push a GitHub. Cloudflare publica solo.     │
+       └──────────────────────────────────────────────────────────────────────┘
+
+       IMPORTANTE: Cloudflare Pages no acepta archivos de más de 25 MB cada
+       uno. Un mp3 de calidad normal (128–192 kbps) pesa 3–8 MB, así que no
+       hay problema. Si exportás en WAV o FLAC, convertí a mp3 antes de subir.
+    ========================================================================== */
+
+    // ---- Nombre y biografía corta (aparecen debajo del carrusel) ----
+    const ARTIST_NAME = 'Alejandro Ponce';
+    const ARTIST_BIO  = '';
+
+    // ---- Links que aparecen debajo del mensaje ----
+    // Reemplazá cada '#' por la dirección real (ej: 'https://...').
+    // Para borrar un link, eliminá su línea. Para agregar otro, copiá una línea.
+    const LINKS = [
+      { label: 'letra (muy pronto)' ,                         url: '#' },
+      { label: 'donar directamente al artista', url: 'https://link.mercadopago.com.ar/alemusica' },
+      { label: 'comprar canción digital',       url: 'https://mpago.la/1kuoqQq' },
+      { label: 'merchandaising (muy pronto)' ,                url: '#' }
+    ];
+
+    // ---- Canciones ----
+    // Cada canción tiene:
+    //   title → el nombre que se muestra en el reproductor
+    //   audio → la ruta del archivo de música
+    //   cover → la ruta de la portada (si no tenés, dejá '' y se muestra un cuadro gris)
+    //
+    // El orden de esta lista es el orden del carrusel.
+    // Ejemplo (borrá las dos barras // del comienzo para activarlo):
+    const SONGS = [
+      // { title: 'Nombre de mi canción',  audio: 'audio/mi-cancion.mp3',  cover: 'covers/mi-cancion.jpg' },
+      // { title: 'Otra canción',          audio: 'audio/otra-cancion.mp3', cover: 'covers/otra-cancion.jpg' },
+        { title: 'Quemando Flores', audio: 'audio/quemandoflores.mp3', cover: 'covers/quemando-flores.jpg' },
+        { title: 'Quisiera Volar', audio: 'audio/quisieravolar.mp3', cover: 'covers/quisiera-volar.jpg' },
+    ];
+
+    /* ==========================================================================
+       FIN DE LA CONFIGURACIÓN — de acá para abajo no hace falta tocar nada.
+    ========================================================================== */
+
+
+    /* ==========================================================
+       UTILIDADES
+    ========================================================== */
+    function formatTime(sec) {
+      if (!isFinite(sec) || sec < 0) return '0:00';
+      const m = Math.floor(sec / 60);
+      const s = Math.floor(sec % 60).toString().padStart(2, '0');
+      return `${m}:${s}`;
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str || '';
+      return div.innerHTML;
+    }
+
+    // Cuadro gris que se usa cuando una canción no tiene portada
+    const PLACEHOLDER_COVER = 'data:image/svg+xml;utf8,' + encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240"><rect width="240" height="240" fill="#e6e6e6"/></svg>'
+    );
+
+    /* ==========================================================
+       ESTADO
+    ========================================================== */
+    const songs = SONGS;
+    let currentSongIndex = 0;
+    let isPlaying = false;
+    let shuffleOn = false;
+    let repeatMode = 'none'; // 'none' | 'all' | 'one'
+    let animating = false;
+
+    const audio = document.getElementById('audioPlayer');
+    const playBtn = document.getElementById('playBtn');
+    const playIcon = document.getElementById('playIcon');
+    const visualizer = document.getElementById('visualizer');
+
+    let audioCtx, analyser, sourceNode, dataArray;
+
+    /* ==========================================================
+       RENDER: INFO PÚBLICA (nombre, bio, links)
+    ========================================================== */
+    function renderPublicInfo() {
+      document.getElementById('artist-name').textContent = ARTIST_NAME;
+      document.getElementById('artist-bio').textContent = ARTIST_BIO;
+
+      const container = document.getElementById('linksSection');
+      container.innerHTML = '';
+      LINKS.forEach(link => {
+        const a = document.createElement('a');
+        a.href = link.url || '#';
+        a.textContent = link.label;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        container.appendChild(a);
+      });
+    }
+
+    /* ==========================================================
+       RENDER: CARRUSEL
+    ========================================================== */
+    function renderCarousel() {
+      const track = document.getElementById('track');
+      const carousel = document.getElementById('carousel');
+      track.innerHTML = '';
+
+      if (songs.length === 0) {
+        carousel.classList.add('empty');
+        const p = document.createElement('p');
+        p.className = 'empty-state';
+        p.textContent = 'Todavía no hay canciones. Agregalas en la lista SONGS dentro de index.html.';
+        track.appendChild(p);
+        document.getElementById('playerContainer').classList.add('disabled');
+        return;
+      }
+
+      carousel.classList.remove('empty');
+      songs.forEach((song, i) => {
+        const card = document.createElement('div');
+        card.className = 'album-card';
+        card.innerHTML = `<img src="${song.cover || PLACEHOLDER_COVER}" alt="Portada de ${escapeHtml(song.title)}">`;
+        card.addEventListener('click', () => loadSong(i, true));
+        track.appendChild(card);
+      });
+      updateCarouselClasses();
+    }
+
+    function updateCarouselClasses() {
+      const cards = Array.from(document.querySelectorAll('#track .album-card'));
+      cards.forEach((card, index) => {
+        card.className = 'album-card';
+        const diff = index - currentSongIndex;
+        if (diff === 0) card.classList.add('active');
+        else if (diff === -1) card.classList.add('prev-1');
+        else if (diff === 1) card.classList.add('next-1');
+        else if (diff === -2) card.classList.add('prev-2');
+        else if (diff === 2) card.classList.add('next-2');
+        else card.classList.add('far');
+      });
+    }
+
+    // Deslizar (swipe) con mouse o táctil
+    let startX = 0;
+    const carouselContainer = document.getElementById('carousel');
+    carouselContainer.addEventListener('mousedown', (e) => startX = e.clientX);
+    carouselContainer.addEventListener('mouseup', (e) => handleSwipe(e.clientX));
+    carouselContainer.addEventListener('touchstart', (e) => startX = e.touches[0].clientX);
+    carouselContainer.addEventListener('touchend', (e) => handleSwipe(e.changedTouches[0].clientX));
+
+    function handleSwipe(endX) {
+      if (!songs.length) return;
+      const threshold = 40;
+      if (startX - endX > threshold && currentSongIndex < songs.length - 1) {
+        loadSong(currentSongIndex + 1, true);
+      } else if (endX - startX > threshold && currentSongIndex > 0) {
+        loadSong(currentSongIndex - 1, true);
+      }
+    }
+
+    /* ==========================================================
+       REPRODUCTOR DE AUDIO
+    ========================================================== */
+    const numberOfBars = 30;
+    for (let i = 0; i < numberOfBars; i++) {
+      const bar = document.createElement('div');
+      bar.classList.add('bar');
+      visualizer.appendChild(bar);
+    }
+    const bars = Array.from(visualizer.querySelectorAll('.bar'));
+
+    function setupAudioContext() {
+      if (audioCtx) return;
+      try {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        sourceNode = audioCtx.createMediaElementSource(audio);
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 64;
+        sourceNode.connect(analyser);
+        analyser.connect(audioCtx.destination);
+        dataArray = new Uint8Array(analyser.frequencyBinCount);
+      } catch (e) {
+        // Si el navegador no soporta el visualizador, la música suena igual.
+        audioCtx = null;
+        analyser = null;
+      }
+    }
+
+    function loadSong(index, autoplay) {
+      if (!songs.length) return;
+      if (index < 0) index = songs.length - 1;
+      if (index >= songs.length) index = 0;
+      currentSongIndex = index;
+      const song = songs[index];
+      audio.src = song.audio || '';
+      document.getElementById('currentSongTitle').textContent = song.title || '';
+      document.getElementById('progressFill').style.width = '0%';
+      document.getElementById('currentTime').textContent = '0:00';
+      document.getElementById('duration').textContent = '0:00';
+      updateCarouselClasses();
+      if (autoplay) playAudio(); else pauseAudio();
+    }
+
+    function playAudio() {
+      if (!audio.src) return;
+      setupAudioContext();
+      if (audioCtx) audioCtx.resume();
+      const p = audio.play();
+      if (p && p.catch) p.catch(() => {});
+      isPlaying = true;
+      playIcon.className = 'fa-solid fa-pause';
+      if (analyser && !animating) {
+        animating = true;
+        requestAnimationFrame(animateVisualizer);
+      }
+    }
+
+    function pauseAudio() {
+      audio.pause();
+      isPlaying = false;
+      playIcon.className = 'fa-solid fa-play';
+      bars.forEach(bar => bar.style.height = '12%');
+    }
+
+    playBtn.addEventListener('click', () => {
+      if (!songs.length) return;
+      isPlaying ? pauseAudio() : playAudio();
+    });
+
+    function animateVisualizer() {
+      if (!isPlaying) { animating = false; return; }
+      analyser.getByteFrequencyData(dataArray);
+      bars.forEach((bar, i) => {
+        const value = dataArray[i % dataArray.length];
+        const pct = Math.max(10, (value / 255) * 100);
+        bar.style.height = pct + '%';
+      });
+      requestAnimationFrame(animateVisualizer);
+    }
+
+    audio.addEventListener('loadedmetadata', () => {
+      document.getElementById('duration').textContent = formatTime(audio.duration);
+    });
+
+    audio.addEventListener('timeupdate', () => {
+      document.getElementById('currentTime').textContent = formatTime(audio.currentTime);
+      const pct = (audio.currentTime / audio.duration) * 100 || 0;
+      document.getElementById('progressFill').style.width = pct + '%';
+    });
+
+    audio.addEventListener('ended', () => {
+      if (repeatMode === 'one') {
+        audio.currentTime = 0;
+        audio.play();
+      } else {
+        nextSong();
+      }
+    });
+
+    document.getElementById('progressBar').addEventListener('click', (e) => {
+      if (!audio.duration) return;
+      const rect = e.currentTarget.getBoundingClientRect();
+      const pct = (e.clientX - rect.left) / rect.width;
+      audio.currentTime = pct * audio.duration;
+    });
+
+    function nextSong() {
+      if (!songs.length) return;
+      if (shuffleOn) {
+        loadSong(Math.floor(Math.random() * songs.length), true);
+        return;
+      }
+      let idx = currentSongIndex + 1;
+      if (idx >= songs.length) {
+        if (repeatMode === 'all') idx = 0;
+        else { pauseAudio(); return; }
+      }
+      loadSong(idx, true);
+    }
+
+    function prevSong() {
+      if (!songs.length) return;
+      loadSong(currentSongIndex - 1, true);
+    }
+
+    document.getElementById('nextBtn').addEventListener('click', nextSong);
+    document.getElementById('prevBtn').addEventListener('click', prevSong);
+
+    document.getElementById('shuffleBtn').addEventListener('click', (e) => {
+      shuffleOn = !shuffleOn;
+      e.currentTarget.classList.toggle('active', shuffleOn);
+    });
+
+    document.getElementById('repeatBtn').addEventListener('click', (e) => {
+      const modes = ['none', 'all', 'one'];
+      repeatMode = modes[(modes.indexOf(repeatMode) + 1) % modes.length];
+      const labels = { none: 'Repetir: desactivado', all: 'Repetir: todas', one: 'Repetir: una' };
+      e.currentTarget.title = labels[repeatMode];
+      e.currentTarget.classList.toggle('active', repeatMode !== 'none');
+    });
+
+    document.getElementById('volumeSlider').addEventListener('input', (e) => {
+      audio.volume = parseFloat(e.target.value);
+    });
+
+    /* ==========================================================
+       INICIO
+    ========================================================== */
+    renderPublicInfo();
+    renderCarousel();
+    if (songs.length) loadSong(0, false);
+  </script>
+</body>
+</html>
